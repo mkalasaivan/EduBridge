@@ -1,0 +1,191 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  MENTOR
+}
+
+enum ResourceType {
+  PDF
+  ARTICLE
+  YOUTUBE
+  GITHUB
+  COURSERA
+  UDEMY
+  KHAN_ACADEMY
+  MEDIUM
+  DEV_TO
+  DOCS
+  OTHER_LINK
+}
+
+enum ResourceLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum RequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+}
+
+enum SessionStatus {
+  SCHEDULED
+  CANCELLED
+  COMPLETED
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String?
+  googleId     String?  @unique
+  googleAccessToken  String?
+  googleRefreshToken String?
+  isVerified   Boolean  @default(false)
+  role         Role     @default(STUDENT)
+  avatar       String?
+  bio          String?
+  skills       String[]
+  interests    String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  resources        Resource[]
+  likes            ResourceLike[]
+  saves            ResourceSave[]
+  comments         Comment[]
+  sentRequests     MentorshipRequest[] @relation("StudentRequests")
+  receivedRequests MentorshipRequest[] @relation("MentorRequests")
+  sentMessages     Message[]
+  notifications    Notification[]
+  otps             Otp[]
+}
+
+model Otp {
+  id        String   @id @default(uuid())
+  email     String
+  code      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Resource {
+  id          String        @id @default(uuid())
+  title       String
+  description String
+  type        ResourceType
+  url         String?
+  content     String?
+  subject     String
+  level       ResourceLevel
+  tags        String[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  authorId String
+  author   User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes    ResourceLike[]
+  saves    ResourceSave[]
+  comments Comment[]
+}
+
+model ResourceLike {
+  userId     String
+  resourceId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, resourceId])
+}
+
+model ResourceSave {
+  userId     String
+  resourceId String
+  createdAt  DateTime @default(now())
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  resource Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+
+  @@id([userId, resourceId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now())
+
+  authorId   String
+  resourceId String
+  author     User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  resource   Resource @relation(fields: [resourceId], references: [id], onDelete: Cascade)
+}
+
+model MentorshipRequest {
+  id        String        @id @default(uuid())
+  subject   String
+  message   String
+  status    RequestStatus @default(PENDING)
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  studentId String
+  mentorId  String
+  student   User      @relation("StudentRequests", fields: [studentId], references: [id], onDelete: Cascade)
+  mentor    User      @relation("MentorRequests", fields: [mentorId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  sessions  MentorshipSession[]
+}
+
+model MentorshipSession {
+  id            String        @id @default(uuid())
+  startTime     DateTime
+  endTime       DateTime
+  googleEventId String?
+  status        SessionStatus @default(SCHEDULED)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  requestId String
+  request   MentorshipRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model Message {
+  id        String   @id @default(uuid())
+  content   String
+  sentAt    DateTime @default(now())
+
+  senderId  String
+  requestId String
+  sender    User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  request   MentorshipRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  title     String
+  content   String
+  type      String   // e.g., "MENTORSHIP_REQUEST", "REQUEST_APPROVED", "NEW_MESSAGE"
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  link      String?  // Optional link to redirect the user
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
