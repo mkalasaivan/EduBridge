@@ -80,6 +80,63 @@ export class MailingService {
       this.logger.log(`Session notification sent to ${email}`);
     } catch (error) {
       this.logger.error(`Error sending session notification to ${email}:`, error);
+      // Fallback for development if SMTP is not configured
+      this.logger.warn(`[DEVELOPMENT ONLY] Mentorship session scheduled email to ${email} would have been sent.`);
+    }
+  }
+  async sendMentorshipRequest(mentorEmail: string, studentName: string, message: string) {
+    const mailOptions = {
+      from: `"EduBridge" <${this.config.get('SMTP_FROM')}>`,
+      to: mentorEmail,
+      subject: 'New Mentorship Request! 🎓',
+      html: `
+        <div style="font-family: 'Inter', sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: #6366f1;">You have a new mentorship request!</h1>
+          <p><strong>${studentName}</strong> has requested you as a mentor on EduBridge.</p>
+          <div style="background: #f8fafc; padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; margin: 20px 0;">
+            <p style="margin: 0; font-weight: 700; color: #64748b;">MESSAGE</p>
+            <p style="margin: 5px 0 0; font-size: 16px; font-style: italic;">"${message}"</p>
+          </div>
+          <p>Log in to your dashboard to accept or decline the request.</p>
+          <a href="${this.config.get('FRONTEND_URL')}/dashboard" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: 700; margin-top: 10px;">Go to Dashboard</a>
+        </div>
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Mentorship request notification sent to ${mentorEmail}`);
+    } catch (error) {
+      this.logger.error(`Error sending request notification to ${mentorEmail}:`, error);
+      this.logger.warn(`[DEVELOPMENT ONLY] Mentorship request email to ${mentorEmail} would have been sent.`);
+    }
+  }
+
+  async sendMentorshipStatusUpdate(studentEmail: string, mentorName: string, status: string) {
+    const isAccepted = status === 'ACCEPTED';
+    const color = isAccepted ? '#10b981' : '#ef4444';
+    const statusText = isAccepted ? 'Approved! 🎉' : 'Declined';
+    
+    const mailOptions = {
+      from: `"EduBridge" <${this.config.get('SMTP_FROM')}>`,
+      to: studentEmail,
+      subject: `Mentorship Request ${statusText}`,
+      html: `
+        <div style="font-family: 'Inter', sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto;">
+          <h1 style="color: ${color};">Mentorship Request ${statusText}</h1>
+          <p>Your recent mentorship request to <strong>${mentorName}</strong> has been <strong>${status.toLowerCase()}</strong>.</p>
+          ${isAccepted ? '<p>Your mentor will schedule a Google Calendar session with you soon!</p>' : '<p>Keep exploring EduBridge to find other amazing mentors who match your learning path.</p>'}
+          <a href="${this.config.get('FRONTEND_URL')}/dashboard" style="display: inline-block; background: #6366f1; color: white; padding: 12px 24px; border-radius: 12px; text-decoration: none; font-weight: 700; margin-top: 20px;">View Dashboard</a>
+        </div>
+      `,
+    };
+
+    try {
+      await this.transporter.sendMail(mailOptions);
+      this.logger.log(`Status update notification sent to ${studentEmail}`);
+    } catch (error) {
+      this.logger.error(`Error sending status notification to ${studentEmail}:`, error);
+      this.logger.warn(`[DEVELOPMENT ONLY] Status update email to ${studentEmail} would have been sent.`);
     }
   }
 }

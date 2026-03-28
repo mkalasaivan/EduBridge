@@ -38,7 +38,7 @@ export class MentorshipService {
         mentorId: dto.mentorId,
       },
       include: {
-        mentor: { select: { id: true, name: true, avatar: true } },
+        mentor: { select: { id: true, name: true, avatar: true, email: true } },
         student: { select: { name: true } },
       },
     });
@@ -57,6 +57,13 @@ export class MentorshipService {
       content: `${request.student.name} requested mentorship on "${dto.subject}"`,
       type: 'MENTORSHIP_REQUEST',
     });
+
+    // Email Notification
+    await this.mailing.sendMentorshipRequest(
+      request.mentor.email,
+      request.student.name,
+      dto.message,
+    );
 
     return request;
   }
@@ -107,7 +114,7 @@ export class MentorshipService {
       data: { status },
       include: {
         mentor: { select: { name: true } },
-        student: { select: { id: true } },
+        student: { select: { id: true, email: true } },
       },
     });
 
@@ -125,6 +132,13 @@ export class MentorshipService {
       content: `${updated.mentor.name} has ${status.toLowerCase()} your mentorship request.`,
       type: 'MENTORSHIP_STATUS',
     });
+
+    // Email Notification
+    await this.mailing.sendMentorshipStatusUpdate(
+      updated.student.email,
+      updated.mentor.name,
+      status,
+    );
 
     return updated;
   }
@@ -193,35 +207,24 @@ export class MentorshipService {
       throw new BadRequestException('End time must be after start time');
     }
 
+    // Create Google Calendar event first to avoid ghost sessions if it fails
+    const googleEventId = await this.scheduling.createCalendarEvent(
+      mentorId,
+      request.student.email,
+      request.subject,
+      startTime,
+      endTime,
+    );
+
     // Create session in Prisma
     const session = await this.prisma.mentorshipSession.create({
       data: {
         startTime,
         endTime,
         requestId,
+        googleEventId,
       },
     });
-
-    // Create Google Calendar event
-    let googleEventId: string | undefined;
-    try {
-      googleEventId = await this.scheduling.createCalendarEvent(
-        mentorId,
-        request.student.email,
-        request.subject,
-        startTime,
-        endTime,
-      ) ?? undefined;
-
-      if (googleEventId) {
-        await this.prisma.mentorshipSession.update({
-          where: { id: session.id },
-          data: { googleEventId },
-        });
-      }
-    } catch (error) {
-      console.error('Google Calendar event creation failed:', error);
-    }
 
     // Notify Student (In-app)
     await this.notifications.create(request.student.id, {

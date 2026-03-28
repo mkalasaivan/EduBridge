@@ -60,6 +60,8 @@ export class SchedulingService {
     try {
       const event = await calendar.events.insert({
         calendarId: 'primary',
+        sendUpdates: 'all',
+        conferenceDataVersion: 1,
         requestBody: {
           summary: `EduBridge Mentorship: ${subject}`,
           description: `Scheduled mentorship session via EduBridge platform.`,
@@ -68,6 +70,12 @@ export class SchedulingService {
           attendees: [{ email: studentEmail }],
           reminders: {
             useDefault: true,
+          },
+          conferenceData: {
+            createRequest: {
+              requestId: `edubridge-${Date.now()}`,
+              conferenceSolutionKey: { type: 'hangoutsMeet' },
+            },
           },
         },
       });
