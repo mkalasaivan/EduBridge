@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
+import { toast } from 'react-hot-toast';
 import { 
   User, 
   Mail, 
@@ -21,8 +22,10 @@ import { useNavigate } from 'react-router-dom';
 const Profile: React.FC = () => {
   const { user, updateMe } = useAuthStore();
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isEditing, setIsEditing] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
@@ -65,10 +68,38 @@ const Profile: React.FC = () => {
       const response = await client.patch('/users/me', dto);
       updateMe(response.data);
       setIsEditing(false);
+      toast.success('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
+      toast.error('Failed to update profile.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    setUploadingAvatar(true);
+    const toastId = toast.loading('Uploading profile picture...');
+    try {
+      const response = await client.post('/users/avatar', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      updateMe(response.data);
+      toast.success('Profile picture updated successfully!', { id: toastId });
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      toast.error('Failed to upload profile picture.', { id: toastId });
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -101,19 +132,36 @@ const Profile: React.FC = () => {
         <div className="glass-strong p-12 rounded-[48px] border border-white/10 flex flex-col md:flex-row items-center md:items-end gap-12 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
           <div className="relative group shrink-0">
-            <div className="w-48 h-48 rounded-[40px] bg-slate-900 p-1.5 border-2 border-primary/20 overflow-hidden shadow-2xl transition-transform hover:scale-105 duration-500 ring-8 ring-white/5">
+            <div className="w-48 h-48 rounded-[40px] bg-slate-900 p-1.5 border-2 border-primary/20 overflow-hidden shadow-2xl transition-transform hover:scale-105 duration-500 ring-8 ring-white/5 relative">
                {user.avatar ? (
                  <img src={user.avatar} className="w-full h-full object-cover rounded-[34px]" alt={user.name} />
                ) : (
-                 <div className="w-full h-full flex items-center justify-center text-primary bg-primary/5">
+                 <div className="w-full h-full flex items-center justify-center text-primary bg-primary/5 rounded-[34px]">
                    <User className="w-20 h-20" />
+                 </div>
+               )}
+               {uploadingAvatar && (
+                 <div className="absolute inset-0 bg-slate-900/80 flex items-center justify-center rounded-[34px] m-1.5 z-20">
+                   <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
                  </div>
                )}
             </div>
             {isEditing && (
-              <button className="absolute bottom-4 right-4 p-3 bg-primary text-white rounded-2xl shadow-xl shadow-primary/30 hover:scale-110 transition-all">
-                <Camera className="w-5 h-5" />
-              </button>
+              <>
+                <input 
+                  type="file" 
+                  ref={fileInputRef} 
+                  onChange={handleAvatarChange} 
+                  accept="image/png, image/jpeg, image/jpg, image/webp"
+                  className="hidden" 
+                />
+                <button 
+                  onClick={() => fileInputRef.current?.click()}
+                  className="absolute bottom-4 right-4 p-3 bg-primary text-white rounded-2xl shadow-xl shadow-primary/30 hover:scale-110 transition-all z-10"
+                >
+                  <Camera className="w-5 h-5" />
+                </button>
+              </>
             )}
           </div>
 
