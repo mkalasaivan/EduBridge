@@ -10,17 +10,8 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   
   app.enableCors({
-    origin: (origin, callback) => {
-      const frontendUrl = config.get('FRONTEND_URL') as string;
-      const allowedDefault = frontendUrl ? frontendUrl.replace(/\/$/, '') : 'http://localhost:5174';
-      
-      if (!origin || origin === allowedDefault || origin.startsWith('http://localhost') || origin.endsWith('.vercel.app')) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    },
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
