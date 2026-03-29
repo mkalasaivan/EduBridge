@@ -10,7 +10,11 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
   
   app.enableCors({
-    origin: true,
+    origin: [
+      'https://project-25o2y.vercel.app',
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ],
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
